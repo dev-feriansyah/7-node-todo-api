@@ -53,7 +53,7 @@ app.get('/todos/:id', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log('Server run in port 3000');
+  console.log(`Server run in port ${port}`);
 });
 
 module.exports = {app};
