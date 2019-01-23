@@ -1,3 +1,4 @@
+require('./config/config'); // Setting up NODE_ENV for test and development
 const bodyParser = require('body-parser');
 const {ObjectID} = require('mongodb');
 const express    = require('express');
@@ -8,7 +9,7 @@ const {Todo}     = require('./models/todo');
 const {User}     = require('./models/user');
 
 const app  = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
