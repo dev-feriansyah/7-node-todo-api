@@ -12,7 +12,9 @@ const todosSeed = [
   },
   {
     _id: new ObjectID(),
-    text: 'Second todo'
+    text: 'Second todo',
+    completed: true,
+    completedAt: 123312
   }
 ];
 
@@ -132,5 +134,62 @@ describe('DELETE /todos/:id', () => {
       .delete('/todos/123')
       .expect(404)
       .end(done);
+  });
+});
+
+describe('PATCH /todos/:id', () => {
+  it('should update todo', done => {
+    const id = todosSeed[0]._id.toHexString();
+    const body = {
+      text: 'Mocha test -1',
+      completed: true
+    }
+    request(app)
+      .patch(`/todos/${id}`)
+      .send(body)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.result.text).toBe(body.text);
+        expect(res.body.result.completed).toBe(body.completed);
+        expect(res.body.result.completedAt).toBeA('number');
+      })
+      .end(err => {
+        if(err) {
+          done(err);
+        }
+        Todo.findById(id).then(todo => {
+          expect(todo.text).toBe(body.text);
+          expect(todo.completed).toBe(body.completed);
+          expect(todo.completedAt).toBeA('number');
+          done();
+        }).catch(e => done(e));
+      })
+  });
+  it('should clear completedAt when todo is NOT COMPLETED', done => {
+    const id = todosSeed[1]._id.toHexString();
+    const body = {
+      text: 'Mocha test -2',
+      completed: false
+    }
+    request(app)
+      .patch(`/todos/${id}`)
+      .send(body)
+      .expect(200)
+      .expect(res => {
+        expect(res.body.result.text).toBe(body.text);
+        expect(res.body.result.completed).toBe(body.completed);
+        expect(res.body.result.completedAt).toNotExist();
+      })
+      .end(err => {
+        if (err) {
+          done(err);
+        }
+        Todo.findById(id).then(todo => {
+          expect(todo.text).toBe(body.text);
+          expect(todo.completed).toBe(body.completed);
+          expect(todo.completedAt).toNotExist();
+          done();
+        }).catch(e => done(e));
+      })
   });
 });
