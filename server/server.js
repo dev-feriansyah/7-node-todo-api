@@ -13,15 +13,15 @@ const port = process.env.PORT;
 
 app.use(bodyParser.json());
 
+/**
+ * TODOS ROUTES
+ */
 app.post('/todos', (req, res) => {
   const body = _.pick(req.body, ['text']);
   Todo
     .create(body)
-    .then(user => {
-      res.send(user);
-    }, e => {
-      res.status(400).send(e);
-    })
+    .then(todo => res.send(todo))
+    .catch(e => res.status(400).send(e));
 });
 
 app.get('/todos', (req, res) => {
@@ -92,6 +92,20 @@ app.patch('/todos/:id', (req, res) => {
       res.send({result});
     })
     .catch(e => res.status(400).send());
+});
+
+/**
+ * USER ROUTES
+ */
+app.post('/users', (req, res) => {
+  const body = _.pick(req.body, ['email', 'password']);
+  const user = new User(body);
+  
+  user
+    .save()
+    .then(() => user.generateAuthToken())
+    .then(token => res.header('x-auth', token).send(user))
+    .catch(e => res.status(400).send(e));
 });
 
 app.listen(port, () => {
