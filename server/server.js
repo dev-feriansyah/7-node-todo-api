@@ -14,11 +14,9 @@ const port = process.env.PORT;
 app.use(bodyParser.json());
 
 app.post('/todos', (req, res) => {
-  const newTodo = new Todo({
-    text: req.body.text
-  });
-  newTodo
-    .save()
+  const body = _.pick(req.body, ['text']);
+  Todo
+    .create(body)
     .then(user => {
       res.send(user);
     }, e => {
