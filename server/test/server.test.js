@@ -4,28 +4,11 @@ const {ObjectID} = require('mongodb');
 
 const {app}  = require('./../server');
 const {Todo} = require('./../models/todo');
+const {User} = require('./../models/user');
+const seed   = require('./seed/seed');
 
-const todosSeed = [
-  {
-    _id: new ObjectID(),
-    text: 'First todo'
-  },
-  {
-    _id: new ObjectID(),
-    text: 'Second todo',
-    completed: true,
-    completedAt: 123312
-  }
-];
-
-beforeEach(done => {
-  Todo
-    .deleteMany({})
-    .then(() => {
-      return Todo.insertMany(todosSeed);
-    })
-    .then(() => done());
-});
+beforeEach(seed.populateUsers);
+beforeEach(seed.populateTodos);
 
 describe('POST /todos', () => {
   it('should create todo document in database', done => {
@@ -79,12 +62,12 @@ describe('GET /todos', () => {
 
 describe('GET /todos/:id', () => {
   it('should return todo doc', done => {
-    const id = todosSeed[0]._id.toHexString();
+    const id = seed.todos[0]._id.toHexString();
     request(app)
       .get(`/todos/${id}`)
       .expect(200)
       .expect(res => {
-        expect(res.body.result.text).toBe(todosSeed[0].text);
+        expect(res.body.result.text).toBe(seed.todos[0].text);
       })
       .end(done);
   });
@@ -105,7 +88,7 @@ describe('GET /todos/:id', () => {
 
 describe('DELETE /todos/:id', () => {
   it('should remove todo doc', done => {
-    const id = todosSeed[0]._id.toHexString();
+    const id = seed.todos[0]._id.toHexString();
     request(app)
       .delete(`/todos/${id}`)
       .expect(200)
@@ -139,7 +122,7 @@ describe('DELETE /todos/:id', () => {
 
 describe('PATCH /todos/:id', () => {
   it('should update todo', done => {
-    const id = todosSeed[0]._id.toHexString();
+    const id = seed.todos[0]._id.toHexString();
     const body = {
       text: 'Mocha test -1',
       completed: true
@@ -166,7 +149,7 @@ describe('PATCH /todos/:id', () => {
       })
   });
   it('should clear completedAt when todo is NOT COMPLETED', done => {
-    const id = todosSeed[1]._id.toHexString();
+    const id = seed.todos[1]._id.toHexString();
     const body = {
       text: 'Mocha test -2',
       completed: false
@@ -188,6 +171,81 @@ describe('PATCH /todos/:id', () => {
           expect(todo.text).toBe(body.text);
           expect(todo.completed).toBe(body.completed);
           expect(todo.completedAt).toNotExist();
+          done();
+        }).catch(e => done(e));
+      })
+  });
+});
+
+describe('GET /users/me', () => {
+  it('should return user that authenticated', done => {
+    request(app)
+      .get('/users/me')
+      .set('x-auth', seed.users[0].tokens[0].token)
+      .expect(200)
+      .expect(res => {
+        expect(res.body._id).toBe(seed.users[0]._id.toHexString());
+        expect(res.body.email).toBe(seed.users[0].email);
+      })
+      .end(done);
+  });
+  it('should NOT return user if not authenticated', done => {
+    request(app)
+      .get('/users/me')
+      .expect(401)
+      .expect(res => expect(res.body).toEqual({}))
+      .end(done);
+  });
+});
+
+describe('POST /users', () => {
+  it('should create a user', done => {
+    const email = 'test@example.com';
+    const password = 'test123';
+    request(app)
+      .post('/users')
+      .send({email, password})
+      .expect(200)
+      .expect(res => {
+        expect(res.header['x-auth']).toExist();
+        expect(res.body._id).toExist();
+        expect(res.body.email).toBe(email);
+      })
+      .end(err => {
+        if(err) return done(err);
+        User.findOne({email}).then(user => {
+          expect(user).toExist();
+          expect(user.password).toNotBe(password);
+          done();
+        }).catch(e => done(e));
+      })
+  });
+  it('should NOT create user when email and password is INVALID', done => {
+    const email = 'invalidemail.com';
+    const password = 'nope' // min 6
+    request(app)
+      .post('/users')
+      .send({email, password})
+      .expect(400)
+      .end(err => {
+        if(err) return done(err);
+        User.findOne({email}).then(user => {
+          expect(user).toNotExist();
+          done();
+        }).catch(e => done(e));
+      })
+  });
+  it('should NOT create user when email already EXIST', done => {
+    const email = seed.users[0].email;
+    const password = 'validpassword';
+    request(app)
+      .post('/users')
+      .send({email, password})
+      .expect(400)
+      .end(err => {
+        if(err) return done(err);
+        User.find({email}).then(users => {
+          expect(users.length).toBe(1);
           done();
         }).catch(e => done(e));
       })
