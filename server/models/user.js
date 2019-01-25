@@ -37,7 +37,7 @@ UserSchema.methods.toJSON = function() {
   const userObject = user.toObject(); // Change mongoose doc to object we can use
 
   return _.pick(userObject, ['_id', 'email']);
-}
+};
 
 UserSchema.methods.generateAuthToken = function() {
   const user = this;
@@ -66,7 +66,17 @@ UserSchema.statics.findByToken = function(token) {
     'tokens.access': decode.access,
     'tokens.token': token
   });
-}
+};
+
+UserSchema.statics.findByCredentials = function(email, password) {
+  const User = this;
+
+  return User.findOne({email}).then(user => {
+    if (!user) return Promise.reject();
+    
+    return bcrypt.compare(password, user.password).then(res => (res) ? user : Promise.reject());
+  });
+};
 
 UserSchema.pre('save', function(next) {
   const user = this;
