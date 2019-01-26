@@ -251,3 +251,43 @@ describe('POST /users', () => {
       })
   });
 });
+
+describe('POST /users/login', () => {
+  it('should login user and return auth token', done => {
+    request(app)
+      .post('/users/login')
+      .send({
+        email: seed.users[1].email,
+        password: seed.users[1].password
+      })
+      .expect(200)
+      .expect(res => expect(res.header['x-auth']).toExist())
+      .end((err, res) => {
+        if(err) return done(err);
+        User.findById(seed.users[1]._id).then(user => {
+          expect(user.tokens[0]).toInclude({
+            access: 'auth',
+            token: res.header['x-auth']
+          });
+          done();
+        }).catch(e => done(e));
+      });
+  });
+  it('should NOT login user and NOT return auth token if data is INVALID', done => {
+    request(app)
+      .post('/users/login')
+      .send({
+        email: seed.users[1].email,
+        password: 'invalidpassword'
+      })
+      .expect(400)
+      .expect(res => expect(res.header['x-auth']).toNotExist())
+      .end(err => {
+        if(err) return done(err);
+        User.findById(seed.users[1]._id).then(user => {
+          expect(user.tokens).toEqual([]);
+          done();
+        }).catch(e => done(e));
+      });
+  });
+});
