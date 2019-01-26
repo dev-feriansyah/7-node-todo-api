@@ -15,6 +15,7 @@ describe('POST /todos', () => {
     const text = 'Mocha testing todo';
     request(app)
       .post('/todos')
+      .set('x-auth', seed.users[0].tokens[0].token)
       .send({text})
       .expect(200)
       .expect(res => {
@@ -34,6 +35,7 @@ describe('POST /todos', () => {
   it('should NOT create todo and response with 400 Code', done => {
     request(app)
       .post('/todos')
+      .set('x-auth', seed.users[0].tokens[0].token)
       .send({})
       .expect(400)
       .end(err => {
@@ -52,55 +54,74 @@ describe('GET /todos', () => {
   it('should get all todos in database', done => {
     request(app)
       .get('/todos')
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(200)
-      .expect(res => {
-        expect(res.body.results.length).toBe(2);
-      })
+      .expect(res => expect(res.body.results.length).toBe(1))
       .end(done);
   });
 });
 
 describe('GET /todos/:id', () => {
-  it('should return todo doc', done => {
+  it('should return todo doc access by approriate user', done => {
     const id = seed.todos[0]._id.toHexString();
     request(app)
       .get(`/todos/${id}`)
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(200)
-      .expect(res => {
-        expect(res.body.result.text).toBe(seed.todos[0].text);
-      })
+      .expect(res => expect(res.body.result.text).toBe(seed.todos[0].text))
+      .end(done);
+  });
+  it('should NOT return todo doc if access by UNapproriate user', done => {
+    const id = seed.todos[0]._id.toHexString();
+    request(app)
+      .get(`/todos/${id}`)
+      .set('x-auth', seed.users[1].tokens[0].token)
+      .expect(404)
       .end(done);
   });
   it('should get 404 if todo not found', done => {
     const id = new ObjectID().toHexString();
     request(app)
       .get(`/todos/${id}`)
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(404)
       .end(done);
   });
   it('should get 404 if ID given is INVALID', done => {
     request(app)
       .get('/todos/123')
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(404)
       .end(done);
   });
 });
 
 describe('DELETE /todos/:id', () => {
-  it('should remove todo doc', done => {
+  it('should remove todo doc if access by approriate user', done => {
     const id = seed.todos[0]._id.toHexString();
     request(app)
       .delete(`/todos/${id}`)
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(200)
-      .expect(res => {
-        expect(res.body.result._id).toBe(id);
-      })
+      .expect(res => expect(res.body.result._id).toBe(id))
       .end(err => {
-        if(err) {
-          return done(err);
-        }
+        if (err) return done(err);
         Todo.findById(id).then(todo => {
           expect(todo).toNotExist();
+          done();
+        }).catch(e => done(e));
+      })
+  });
+  it('should NOT remove todo doc if access by UNapproriate user', done => {
+    const id = seed.todos[0]._id.toHexString();
+    request(app)
+      .delete(`/todos/${id}`)
+      .set('x-auth', seed.users[1].tokens[0].token)
+      .expect(404)
+      .end(err => {
+        if (err) return done(err);
+        Todo.findById(id).then(todo => {
+          expect(todo).toExist();
           done();
         }).catch(e => done(e));
       })
@@ -109,19 +130,21 @@ describe('DELETE /todos/:id', () => {
     const id = new ObjectID().toHexString();
     request(app)
       .delete(`/todos/${id}`)
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(404)
       .end(done);
   });
   it('should get 404 if ID given is INVALID', done => {
     request(app)
       .delete('/todos/123')
+      .set('x-auth', seed.users[0].tokens[0].token)
       .expect(404)
       .end(done);
   });
 });
 
 describe('PATCH /todos/:id', () => {
-  it('should update todo', done => {
+  it('should update todo if access by approriate user', done => {
     const id = seed.todos[0]._id.toHexString();
     const body = {
       text: 'Mocha test -1',
@@ -129,6 +152,7 @@ describe('PATCH /todos/:id', () => {
     }
     request(app)
       .patch(`/todos/${id}`)
+      .set('x-auth', seed.users[0].tokens[0].token)
       .send(body)
       .expect(200)
       .expect(res => {
@@ -137,13 +161,31 @@ describe('PATCH /todos/:id', () => {
         expect(res.body.result.completedAt).toBeA('number');
       })
       .end(err => {
-        if(err) {
-          done(err);
-        }
+        if (err) done(err);
         Todo.findById(id).then(todo => {
           expect(todo.text).toBe(body.text);
           expect(todo.completed).toBe(body.completed);
           expect(todo.completedAt).toBeA('number');
+          done();
+        }).catch(e => done(e));
+      })
+  });
+  it('should NOT update todo if access by UNapproriate user', done => {
+    const id = seed.todos[0]._id.toHexString();
+    const body = {
+      text: 'Mocha test -1',
+      completed: true
+    }
+    request(app)
+      .patch(`/todos/${id}`)
+      .set('x-auth', seed.users[1].tokens[0].token)
+      .send(body)
+      .expect(404)
+      .end(err => {
+        if (err) done(err);
+        Todo.findById(id).then(todo => {
+          expect(todo.text).toNotBe(body.text);
+          expect(todo.completed).toNotBe(body.completed);
           done();
         }).catch(e => done(e));
       })
@@ -156,6 +198,7 @@ describe('PATCH /todos/:id', () => {
     }
     request(app)
       .patch(`/todos/${id}`)
+      .set('x-auth', seed.users[1].tokens[0].token)
       .send(body)
       .expect(200)
       .expect(res => {
@@ -164,9 +207,7 @@ describe('PATCH /todos/:id', () => {
         expect(res.body.result.completedAt).toNotExist();
       })
       .end(err => {
-        if (err) {
-          done(err);
-        }
+        if (err) done(err);
         Todo.findById(id).then(todo => {
           expect(todo.text).toBe(body.text);
           expect(todo.completed).toBe(body.completed);
@@ -265,7 +306,7 @@ describe('POST /users/login', () => {
       .end((err, res) => {
         if(err) return done(err);
         User.findById(seed.users[1]._id).then(user => {
-          expect(user.tokens[0]).toInclude({
+          expect(user.tokens[1]).toInclude({
             access: 'auth',
             token: res.header['x-auth']
           });
@@ -285,7 +326,7 @@ describe('POST /users/login', () => {
       .end(err => {
         if(err) return done(err);
         User.findById(seed.users[1]._id).then(user => {
-          expect(user.tokens).toEqual([]);
+          expect(user.tokens.length).toBe(1);
           done();
         }).catch(e => done(e));
       });

@@ -17,65 +17,55 @@ app.use(bodyParser.json());
 /**
  * TODOS ROUTES
  */
-app.post('/todos', (req, res) => {
+app.post('/todos', authenticate, (req, res) => {
   const body = _.pick(req.body, ['text']);
   Todo
-    .create(body)
+    .create({...body, _creator: req.user._id})
     .then(todo => res.send(todo))
     .catch(e => res.status(400).send(e));
 });
 
-app.get('/todos', (req, res) => {
+app.get('/todos', authenticate, (req, res) => {
   Todo
-    .find()
+    .find({_creator: req.user._id})
     .then(results => res.send({results}))
     .catch(e => res.status(400).send(e));
 });
 
-app.get('/todos/:id', (req, res) => {
+app.get('/todos/:id', authenticate, (req, res) => {
   const id = req.params.id;
 
-  // Check id valid atau tidak
-  if(!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
+  if(!ObjectID.isValid(id)) return res.status(404).send();
   
   Todo
-    .findById(id)
+    .findOne({_id: id, _creator: req.user._id})
     .then(result => {
-      if(!result) {
-        return res.status(404).send();
-      }
+      if (!result) return res.status(404).send();
+
       res.send({result});
     })
     .catch(e => res.status(400).send());
 });
 
-app.delete('/todos/:id', (req, res) => {
+app.delete('/todos/:id', authenticate, (req, res) => {
   const id = req.params.id;
 
-  if(!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
+  if(!ObjectID.isValid(id)) return res.status(404).send();
 
   Todo
-    .findByIdAndDelete(id)
+    .findOneAndDelete({_id: id, _creator: req.user._id})
     .then(result => {
-      if(!result) {
-        return res.status(404).send();
-      }
+      if (!result) return res.status(404).send();
       res.send({result});
     })
     .catch(e => res.status(400).send());
 });
 
-app.patch('/todos/:id', (req, res) => {
+app.patch('/todos/:id', authenticate, (req, res) => {
   const id = req.params.id;
   const body = _.pick(req.body, ['text', 'completed']);
 
-  if(!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
+  if (!ObjectID.isValid(id)) return res.status(404).send();
   
   if(_.isBoolean(body.completed) && body.completed) {
     body.completedAt = new Date().getTime();
@@ -85,11 +75,9 @@ app.patch('/todos/:id', (req, res) => {
   }
 
   Todo
-    .findByIdAndUpdate(id, body, {new: true})
+    .findOneAndUpdate({_id: id, _creator: req.user._id}, body, {new: true})
     .then(result => {
-      if(!result) {
-        return res.status(404).send();
-      }
+      if (!result) return res.status(404).send();
       res.send({result});
     })
     .catch(e => res.status(400).send());
